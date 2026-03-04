@@ -1,18 +1,1 @@
-# AI Infrastructure Architecture v2.0
-
-## Overview
-Full stack: Signal/Telegram → Control Plane → Workers → LLM
-
-## Roadmap
-- Phase 1: Credentials rotation
-- Telegram bot
-- Doc AI
-
-## Blockers
-- Browser Use 502
-
-## Decisions
-- Drop OpenClaw, use Control Plane as hub
-
-7-week Gantt timeline from 2026-03-04
-strategic-intelligence-ai = Document AI + OSINT + multi-agent core
+# 🏗️ БАС — AI Infrastructure Architecture > **A7022 · LightNode Bangkok · 2026-03-04** ## Статус компонентів | Компонент | Статус | Опис | |-----------|--------|------| | Signal-бот (Грім) | ✅ LIVE | Тривога/відбій, keyword routing | | Control Plane | ✅ LIVE | FastAPI + PostgreSQL + Docker | | n8n Cloud | ✅ LIVE | lilya.app.n8n.cloud | | Strategic Intelligence AI | 🔶 DEPLOY | Цей репо → docker-compose на LightNode | | OSINT Toolkit | 🔶 WRAP | FastAPI wrapper над CLI | | Telegram Bot | 🔧 BUILD | python-telegram-bot → Control Plane | | Browser Agent | ⚠️ FIX | 502 + credentials rotation needed | | Web UI (MindFlowAI) | 📋 PLAN | React → Control Plane API | ## Архітектура (повна схема) 👉 **[docs/architecture.html](docs/architecture.html)** — інтерактивна схема з таймлайном ### Шари системи ``` [Signal / Telegram / Web UI / API] ↓ [Control Plane — FastAPI] 100.120.118.102 · Tailscale LLM Router · Memory · Tools ↓ [Strategic AI] [OSINT] [Browser Agent] ↓ [Claude Sonnet/Haiku · Gemini · Grok] ``` ## Roadmap ### Фаза 1 · Зараз (тиждень 1-2) - [ ] Ротація Browser Use credentials (**BLOCKER**) - [ ] Telegram-бот v1 → /ask /doc - [ ] Multi-LLM роутинг (Sonnet/Haiku/Gemini) ### Фаза 2 · Інтеграція (тиждень 2-4) - [ ] `docker-compose up` цього репо на LightNode - [ ] Підключення до Control Plane `/doc` endpoint - [ ] FastAPI wrapper для osint-toolkit CLI - [ ] Document AI → автозаповнення форм A7022 ### Фаза 3 · Стабілізація (тиждень 4-7) - [ ] Grafana моніторинг (вже в osint-toolkit docker) - [ ] MindFlowAI → Web UI адмін-панель - [ ] Agent AX production - [ ] Ollama local fallback ## Ключові рішення **✓ Цей репо = Document AI + OSINT + multi-agent core** Не пишемо з нуля — розгортаємо і підключаємо до Control Plane. **✓ OpenClaw → дропаємо** Browser Use Cloud API викликається напряму з Control Plane. **✓ Haiku замість Opus для рутини** ~20x дешевше, для Telegram-бота і класифікації достатньо. **⚠️ Zero Trust для агентів** Всі дії агентів логуються. Жодного plain-text API ключа в коді. --- *БАС · A7022 · Confidential*
