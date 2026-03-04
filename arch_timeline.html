@@ -1,0 +1,445 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>БАС — Architecture v2 (Real Stack)</title>
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=Share+Tech+Mono&family=Rajdhani:wght@400;600;700&display=swap');
+  :root {
+    --bg: #0a0c0f;
+    --panel: #0f1318;
+    --border: #1e2d1e;
+    --green: #39ff14;
+    --green-dim: #1a7a08;
+    --amber: #ffb300;
+    --amber-dim: #7a5500;
+    --red: #ff3c3c;
+    --red-dim: #5e1a1a;
+    --blue: #00cfff;
+    --blue-dim: #004d5e;
+    --purple: #bf7fff;
+    --purple-dim: #4a2080;
+    --text: #c8d8c8;
+    --text-dim: #5a7a5a;
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body {
+    background: var(--bg);
+    color: var(--text);
+    font-family: 'Share Tech Mono', monospace;
+    min-height: 100vh;
+    padding: 20px;
+    background-image: radial-gradient(ellipse at 15% 0%, #0d2a0d 0%, transparent 45%),
+                      radial-gradient(ellipse at 85% 100%, #0a1520 0%, transparent 45%);
+  }
+  .header { text-align:center; margin-bottom:28px; padding-bottom:14px; border-bottom:1px solid var(--border); }
+  .header h1 { font-family:'Rajdhani',sans-serif; font-size:26px; font-weight:700; color:var(--green); letter-spacing:4px; text-transform:uppercase; }
+  .header .sub { color:var(--text-dim); font-size:10px; letter-spacing:3px; margin-top:5px; }
+  .header .ver { display:inline-block; margin-top:8px; padding:2px 10px; border:1px solid var(--green-dim); color:var(--green); font-size:10px; letter-spacing:2px; }
+
+  /* INSIGHT BOX */
+  .insight {
+    border:1px solid var(--amber-dim);
+    background:#0f0e08;
+    padding:14px 18px;
+    margin-bottom:20px;
+    font-size:11px;
+    line-height:1.8;
+  }
+  .insight h3 { font-family:'Rajdhani',sans-serif; font-size:13px; font-weight:700; color:var(--amber); letter-spacing:2px; text-transform:uppercase; margin-bottom:10px; }
+  .insight .item { display:flex; gap:10px; margin-bottom:6px; }
+  .insight .repo { color:var(--amber); min-width:220px; }
+  .insight .desc { color:var(--text-dim); }
+  .insight .desc span { color:var(--text); }
+  .insight .desc .ok { color:var(--green); }
+  .insight .desc .warn { color:var(--red); }
+  .insight .desc .drop { text-decoration:line-through; color:#444; }
+
+  /* LAYERS */
+  .layer { margin-bottom:18px; }
+  .layer-label { font-size:10px; letter-spacing:3px; color:var(--text-dim); text-transform:uppercase; margin-bottom:8px; padding-left:8px; border-left:2px solid var(--green-dim); }
+
+  /* NODES */
+  .grid2 { display:grid; grid-template-columns:1fr 1fr; gap:10px; }
+  .grid3 { display:grid; grid-template-columns:1fr 1fr 1fr; gap:10px; }
+  .grid4 { display:grid; grid-template-columns:repeat(4,1fr); gap:10px; }
+  @media(max-width:900px){ .grid3,.grid4{grid-template-columns:1fr 1fr;} }
+  @media(max-width:560px){ .grid2,.grid3,.grid4{grid-template-columns:1fr;} }
+
+  .node {
+    border:1px solid var(--border);
+    background:var(--panel);
+    padding:12px 14px;
+    position:relative;
+  }
+  .node::before { content:''; position:absolute; top:-1px; left:-1px; width:5px; height:5px; }
+  .node.g { border-color:var(--green-dim); } .node.g::before { background:var(--green); }
+  .node.a { border-color:var(--amber-dim); } .node.a::before { background:var(--amber); }
+  .node.b { border-color:var(--blue-dim); }  .node.b::before { background:var(--blue); }
+  .node.r { border-color:var(--red-dim); }   .node.r::before { background:var(--red); }
+  .node.p { border-color:var(--purple-dim); } .node.p::before { background:var(--purple); }
+  .node.dim { opacity:0.45; }
+
+  .nt { font-family:'Rajdhani',sans-serif; font-size:14px; font-weight:700; letter-spacing:1px; margin-bottom:3px; }
+  .node.g .nt { color:var(--green); }
+  .node.a .nt { color:var(--amber); }
+  .node.b .nt { color:var(--blue); }
+  .node.r .nt { color:var(--red); }
+  .node.p .nt { color:var(--purple); }
+
+  .ns { font-size:10px; color:var(--text-dim); letter-spacing:1px; margin-bottom:7px; }
+  .nl { font-size:10px; color:var(--text-dim); line-height:1.7; margin-top:6px; }
+  .nl .ok { color:var(--green); }
+  .nl .wa { color:var(--amber); }
+  .nl .er { color:var(--red); }
+
+  .badge { position:absolute; top:7px; right:9px; font-size:9px; letter-spacing:1px; padding:2px 5px; border:1px solid; }
+  .badge.live { color:var(--green); border-color:var(--green-dim); }
+  .badge.build { color:var(--amber); border-color:var(--amber-dim); }
+  .badge.plan { color:var(--text-dim); border-color:#333; }
+  .badge.drop { color:var(--red); border-color:var(--red-dim); }
+
+  .tags { display:flex; flex-wrap:wrap; gap:3px; margin-top:7px; }
+  .tag { font-size:9px; padding:1px 5px; letter-spacing:1px; border:1px solid; }
+  .tag.g { border-color:var(--green-dim); color:var(--green); }
+  .tag.a { border-color:var(--amber-dim); color:var(--amber); }
+  .tag.b { border-color:var(--blue-dim); color:var(--blue); }
+  .tag.r { border-color:var(--red-dim); color:var(--red); }
+  .tag.d { border-color:#333; color:#555; }
+
+  .connector { text-align:center; color:var(--green-dim); font-size:16px; margin:6px 0; }
+  .sep { border:none; border-top:1px solid var(--border); margin:18px 0; }
+
+  /* ROADMAP TABLE */
+  .roadmap { width:100%; border-collapse:collapse; font-size:10px; margin-top:6px; }
+  .roadmap th { font-family:'Rajdhani',sans-serif; font-size:11px; font-weight:700; letter-spacing:2px; text-align:left; padding:8px 10px; border-bottom:1px solid var(--border); }
+  .roadmap th.g { color:var(--green); }
+  .roadmap th.a { color:var(--amber); }
+  .roadmap th.b { color:var(--blue); }
+  .roadmap td { padding:6px 10px; border-bottom:1px solid #111; color:var(--text-dim); vertical-align:top; line-height:1.6; }
+  .roadmap td span { color:var(--text); }
+  .roadmap tr:hover td { background:#0d1210; }
+
+  /* KEY DECISIONS */
+  .decisions { border:1px solid var(--blue-dim); background:#080d10; padding:14px 18px; margin-top:16px; }
+  .decisions h3 { font-family:'Rajdhani',sans-serif; font-size:13px; font-weight:700; color:var(--blue); letter-spacing:2px; text-transform:uppercase; margin-bottom:12px; }
+  .dec { display:flex; gap:10px; margin-bottom:10px; font-size:11px; line-height:1.7; }
+  .dec-icon { min-width:18px; font-size:13px; }
+  .dec-text { color:var(--text-dim); }
+  .dec-text span { color:var(--text); }
+  .dec-text .hl { color:var(--green); font-weight:bold; }
+  .dec-text .ha { color:var(--amber); }
+  .dec-text .hr { color:var(--red); }
+</style>
+</head>
+<body>
+
+<div class="header">
+  <h1>БАС // Real Stack Architecture</h1>
+  <div class="sub">на основі аналізу реальних репозиторіїв · 2026-03-04</div>
+  <span class="ver">v2.0 · POST REPO ANALYSIS</span>
+</div>
+
+<!-- REPO ANALYSIS -->
+<div class="insight">
+  <h3>// Що реально є в репозиторіях</h3>
+
+  <div class="item">
+    <div class="repo">strategic-intelligence-ai</div>
+    <div class="desc"><span class="ok">✓ ЗОЛОТО.</span> <span>Python + Docker. Document AI Pipeline + OSINT Automation + Decision Orchestrator (multi-agent). Архітектура вже описана — ingestion → NLP → entity extraction → reasoning. Це і є твій Document AI бекенд.</span></div>
+  </div>
+  <div class="item">
+    <div class="repo">osint-toolkit</div>
+    <div class="desc"><span class="ok">✓ ГОТОВО.</span> <span>SpiderFoot + Recon-ng + theHarvester. CLI wrapper `osint` команда. Інтегровано з Claude Code + daily workflow. Docker-compose: UI :5001, Grafana :3000, PostgreSQL, Redis.</span></div>
+  </div>
+  <div class="item">
+    <div class="repo">MindFlowAI</div>
+    <div class="desc"><span>React/TS + Gemini API. PARA методологія управління знаннями. Локальне сховище. <span class="ok">Можна як Web UI</span> для агентів, але не бекенд.</span></div>
+  </div>
+  <div class="item">
+    <div class="repo">openclaw</div>
+    <div class="desc"><span class="drop">Node.js/TS, 50+ конфіг-файлів, Gateway daemon, WebSocket hell.</span> <span class="err" style="color:var(--red)"> → ДРОПАЄМО.</span></div>
+  </div>
+  <div class="item">
+    <div class="repo">document-ai-system / adam-dev-environment</div>
+    <div class="desc"><span style="color:#444">Приватні / порожні. Не видно. Ймовірно ранні ескізи.</span></div>
+  </div>
+</div>
+
+<!-- LAYER 0 -->
+<div class="layer">
+  <div class="layer-label">00 · Канали входу</div>
+  <div class="grid4">
+    <div class="node g">
+      <span class="badge live">LIVE</span>
+      <div class="nt">Signal</div>
+      <div class="ns">signal-cli · Docker</div>
+      <div class="nl"><span class="ok">→</span> Грім · тривога/відбій<br><span class="ok">→</span> ключові слова</div>
+    </div>
+    <div class="node a">
+      <span class="badge build">BUILD NEXT</span>
+      <div class="nt">Telegram</div>
+      <div class="ns">python-telegram-bot</div>
+      <div class="nl"><span class="wa">→</span> /ask /doc /osint<br><span class="wa">→</span> підрозділ A7022</div>
+    </div>
+    <div class="node p">
+      <span class="badge plan">PLAN</span>
+      <div class="nt">Web UI</div>
+      <div class="ns">MindFlowAI (React)</div>
+      <div class="nl">→ адмін-панель<br>→ перегляд агентів</div>
+    </div>
+    <div class="node">
+      <span class="badge plan">PLAN</span>
+      <div class="nt">API / Webhooks</div>
+      <div class="ns">REST endpoints</div>
+      <div class="nl">→ n8n тригери<br>→ зовнішні інтеграції</div>
+    </div>
+  </div>
+</div>
+
+<div class="connector">↓ ↓ ↓ ↓</div>
+
+<!-- LAYER 1: CONTROL PLANE -->
+<div class="layer">
+  <div class="layer-label">01 · Control Plane — центральний хаб (FastAPI + PostgreSQL)</div>
+  <div class="node g" style="width:100%">
+    <span class="badge live">LIVE · LightNode Bangkok · Tailscale</span>
+    <div class="nt">CONTROL PLANE · 100.120.118.102</div>
+    <div class="ns">FastAPI + PostgreSQL + Docker · Агенти: Лілія / Софія / Вікторія / Ангелочок</div>
+    <div style="display:grid; grid-template-columns:repeat(5,1fr); gap:8px; margin-top:10px;">
+      <div style="border:1px solid #1e3a1e; padding:8px; font-size:10px;">
+        <div style="color:var(--green); margin-bottom:3px;">ROUTER</div>
+        <div style="color:var(--text-dim)">Claude Sonnet<br>Gemini Flash<br>Haiku (рутина)</div>
+      </div>
+      <div style="border:1px solid #1e3a1e; padding:8px; font-size:10px;">
+        <div style="color:var(--green); margin-bottom:3px;">MEMORY</div>
+        <div style="color:var(--text-dim)">PostgreSQL<br>Сесії/контекст<br>Історія чатів</div>
+      </div>
+      <div style="border:1px solid #1e3a1e; padding:8px; font-size:10px;">
+        <div style="color:var(--green); margin-bottom:3px;">TOOLS API</div>
+        <div style="color:var(--text-dim)">/doc → Doc AI<br>/osint → Toolkit<br>/browse → Browser</div>
+      </div>
+      <div style="border:1px solid #1e3a1e; padding:8px; font-size:10px;">
+        <div style="color:var(--green); margin-bottom:3px;">n8n BRIDGE</div>
+        <div style="color:var(--text-dim)">lilya.app.n8n<br>Webhooks<br>Workflow chain</div>
+      </div>
+      <div style="border:1px solid #1e3a1e; padding:8px; font-size:10px;">
+        <div style="color:var(--green); margin-bottom:3px;">AGENT AX</div>
+        <div style="color:var(--text-dim)">Family агенти<br>Task queue<br>MCP tools</div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<div class="connector">↓ ↓ ↓</div>
+
+<!-- LAYER 2: WORKERS — ключова зміна -->
+<div class="layer">
+  <div class="layer-label">02 · Сервіси — переосмислено на базі реальних репо</div>
+  <div class="grid3">
+
+    <div class="node g">
+      <span class="badge live">ІСНУЄ → DEPLOY</span>
+      <div class="nt">Strategic Intelligence AI</div>
+      <div class="ns">strategic-intelligence-ai · Python · Docker</div>
+      <div class="nl">
+        <span class="ok">✓</span> Document AI Pipeline (PDF/DOCX)<br>
+        <span class="ok">✓</span> Entity extraction (spaCy/Transformers)<br>
+        <span class="ok">✓</span> OSINT automation layer<br>
+        <span class="ok">✓</span> Decision Orchestrator (multi-agent)<br>
+        <span class="wa">→</span> Потребує підключення до Control Plane
+      </div>
+      <div class="tags">
+        <span class="tag g">ОСНОВА</span>
+        <span class="tag g">document-ai-system</span>
+      </div>
+    </div>
+
+    <div class="node g">
+      <span class="badge live">ІСНУЄ → INTEGRATE</span>
+      <div class="nt">OSINT Toolkit</div>
+      <div class="ns">osint-toolkit · SpiderFoot + Recon-ng</div>
+      <div class="nl">
+        <span class="ok">✓</span> CLI: `osint recon target`<br>
+        <span class="ok">✓</span> Leak detection / forum monitor<br>
+        <span class="ok">✓</span> Docker: UI :5001, Grafana :3000<br>
+        <span class="ok">✓</span> Вже інтегровано з Claude Code<br>
+        <span class="wa">→</span> Додати REST wrapper для Control Plane
+      </div>
+      <div class="tags">
+        <span class="tag g">ГОТОВО</span>
+        <span class="tag g">osint-toolkit</span>
+      </div>
+    </div>
+
+    <div class="node a">
+      <span class="badge build">FIX NEEDED</span>
+      <div class="nt">Browser Agent</div>
+      <div class="ns">Browser Use Cloud API</div>
+      <div class="nl">
+        <span class="er">✗</span> 502 Bad Gateway · disconnect-loop<br>
+        <span class="er">✗</span> Credentials скомпрометовані<br>
+        <span class="wa">→</span> 1. Ротація Gateway Token<br>
+        <span class="wa">→</span> 2. Перевірка LightNode firewall<br>
+        <span class="wa">→</span> 3. Tool виклик з Control Plane
+      </div>
+      <div class="tags">
+        <span class="tag r">CREDENTIALS ROTATION!</span>
+      </div>
+    </div>
+
+  </div>
+</div>
+
+<div class="connector">↓ ↓</div>
+
+<!-- LAYER 3: LLM -->
+<div class="layer">
+  <div class="layer-label">03 · LLM роутинг — за задачею і вартістю</div>
+  <div class="grid4">
+    <div class="node g">
+      <div class="nt">Claude Sonnet 4.6</div>
+      <div class="ns">основна робота</div>
+      <div class="nl">Агенти, документи<br>складна логіка<br><span style="color:#333">$3/$15 per 1M</span></div>
+      <div class="tags"><span class="tag g">DEFAULT</span></div>
+    </div>
+    <div class="node g">
+      <div class="nt">Claude Haiku 4.5</div>
+      <div class="ns">рутина / класифікація</div>
+      <div class="nl">Короткі відповіді<br>Класифікація тексту<br><span style="color:var(--green)">~20x дешевше</span></div>
+      <div class="tags"><span class="tag g">BUDGET</span></div>
+    </div>
+    <div class="node b">
+      <div class="nt">Gemini Flash</div>
+      <div class="ns">Google AI · OCR / Vision</div>
+      <div class="nl">Документи з фото<br>Швидкі задачі<br>Вже в MindFlowAI</div>
+      <div class="tags"><span class="tag b">VISION</span></div>
+    </div>
+    <div class="node dim">
+      <div class="nt">Opus 4.6</div>
+      <div class="ns">тільки для важкого аналізу</div>
+      <div class="nl">НЕ для рутини<br><span style="color:var(--red)">з'їдає бюджет</span></div>
+      <div class="tags"><span class="tag d">SPARINGLY</span></div>
+    </div>
+  </div>
+</div>
+
+<hr class="sep">
+
+<!-- ROADMAP -->
+<div class="layer">
+  <div class="layer-label">Roadmap — конкретні кроки</div>
+  <div class="node" style="width:100%; border-color:#1e2d1e; padding:0;">
+    <table class="roadmap">
+      <tr>
+        <th class="g" style="width:12%">ФАЗА</th>
+        <th class="g" style="width:30%">ЩО РОБИМО</th>
+        <th class="a" style="width:35%">ЯК (конкретно)</th>
+        <th class="b" style="width:23%">РЕЗУЛЬТАТ</th>
+      </tr>
+      <tr>
+        <td><span style="color:var(--green)">1 · ЗАРАЗ</span><br>~3-5 днів</td>
+        <td>
+          <span>Ротація Browser Use credentials</span><br>
+          <span>Telegram-бот базовий</span>
+        </td>
+        <td>
+          Новий Gateway Token → .env на LightNode<br>
+          python-telegram-bot → /start /ask → Control Plane /chat
+        </td>
+        <td><span>Бот відповідає в Telegram через Claude Sonnet</span></td>
+      </tr>
+      <tr>
+        <td><span style="color:var(--amber)">2 · +1 тиждень</span></td>
+        <td>
+          <span>strategic-intelligence-ai → deploy</span><br>
+          <span>Document AI команди</span>
+        </td>
+        <td>
+          docker-compose up на LightNode<br>
+          /doc команда → Strategic AI → Google Drive → PDF
+        </td>
+        <td><span>Автозаповнення форм A7022 через Telegram</span></td>
+      </tr>
+      <tr>
+        <td><span style="color:var(--amber)">3 · +2 тижні</span></td>
+        <td>
+          <span>osint-toolkit REST wrapper</span><br>
+          <span>Browser Agent фікс</span>
+        </td>
+        <td>
+          FastAPI обгортка над `osint` CLI<br>
+          Перевірка 502: порти, firewall, новий token
+        </td>
+        <td><span>/osint команда в Telegram, веб-агент працює</span></td>
+      </tr>
+      <tr>
+        <td><span style="color:var(--blue)">4 · Стабіл.</span></td>
+        <td>
+          <span>MindFlowAI → Web UI</span><br>
+          <span>Моніторинг, логи</span>
+        </td>
+        <td>
+          Підключити MindFlowAI до Control Plane API<br>
+          Grafana (вже є в osint-toolkit docker)
+        </td>
+        <td><span>Повний стек з UI та моніторингом</span></td>
+      </tr>
+    </table>
+  </div>
+</div>
+
+<!-- KEY DECISIONS -->
+<div class="decisions">
+  <h3>// Ключові рішення на основі аналізу репо</h3>
+
+  <div class="dec">
+    <div class="dec-icon" style="color:var(--green)">✓</div>
+    <div class="dec-text">
+      <span class="hl">strategic-intelligence-ai</span> <span>— це вже готова архітектура Document AI + OSINT + multi-agent. НЕ пишемо з нуля, розгортаємо і підключаємо до Control Plane.</span>
+    </div>
+  </div>
+
+  <div class="dec">
+    <div class="dec-icon" style="color:var(--green)">✓</div>
+    <div class="dec-text">
+      <span class="hl">osint-toolkit</span> <span>— вже працює як CLI. Потрібен тільки тонкий FastAPI wrapper щоб Control Plane міг викликати `osint recon` як tool.</span>
+    </div>
+  </div>
+
+  <div class="dec">
+    <div class="dec-icon" style="color:var(--green)">✓</div>
+    <div class="dec-text">
+      <span class="hl">MindFlowAI</span> <span>— React + Gemini. Хороша основа для Web UI адмін-панелі. Перепідключити з LocalStorage на Control Plane API.</span>
+    </div>
+  </div>
+
+  <div class="dec">
+    <div class="dec-icon" style="color:var(--red)">✗</div>
+    <div class="dec-text">
+      <span class="hr">openclaw</span> <span>— 50+ конфіг-файлів, Node.js Gateway, WebSocket, .swiftformat (!). Дропаємо повністю. Жодного нового коду туди.</span>
+    </div>
+  </div>
+
+  <div class="dec">
+    <div class="dec-icon" style="color:var(--amber)">!</div>
+    <div class="dec-text">
+      <span class="ha">Пріоритет #1 перед усім:</span> <span>ротація Browser Use credentials. Скомпрометовані ключі на сервері — це діра в безпеці. Зробити ДО запуску нових сервісів.</span>
+    </div>
+  </div>
+
+  <div class="dec">
+    <div class="dec-icon" style="color:var(--amber)">!</div>
+    <div class="dec-text">
+      <span class="ha">Бюджет Claude API:</span> <span>Opus 4.6 тільки для реально складного аналізу. Весь Telegram-бот та рутина → Haiku 4.5. Це збереже бюджет у ~20 разів.</span>
+    </div>
+  </div>
+</div>
+
+<div style="text-align:center; margin-top:20px; font-size:10px; color:var(--text-dim); letter-spacing:2px;">
+  БАС · A7022 · v2.0 · 2026-03-04 · BASED ON REAL REPO ANALYSIS
+</div>
+
+</body>
+</html>

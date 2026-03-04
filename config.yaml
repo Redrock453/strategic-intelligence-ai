@@ -1,0 +1,17 @@
+# Strategic Intelligence AI Config
+agents:
+  liliya:
+    model: claude-sonnet-4.6
+    tools: [doc_ai, osint]
+  victoria:
+    model: claude-haiku-4.5
+    tools: [chat, browse]
+logging:
+  level: INFO
+  file: logs/agent.log
+ollama:
+  enabled: false
+  models: [mistral, llama3]
+zero_trust:
+  log_all_actions: true
+  encrypt_keys: true
