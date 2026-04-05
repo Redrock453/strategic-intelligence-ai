@@ -11,6 +11,7 @@ Supported providers:
 
 from abc import ABC, abstractmethod
 import os
+import asyncio
 import logging
 from typing import List, Optional, Dict
 
@@ -52,6 +53,8 @@ class GeminiProvider(LLMProvider):
     def _setup_client(self):
         try:
             import google.generativeai as genai
+            self.genai = genai
+            genai.configure(api_key=self.api_key)
             self.client = genai.Client(api_key=self.api_key)
             logger.info(f"Gemini client initialized with model {self.model}")
         except ImportError:
@@ -60,11 +63,13 @@ class GeminiProvider(LLMProvider):
 
     async def generate(self, prompt: str, temperature: float = 0.7, max_tokens: int = 4096) -> str:
         """Generate response using Gemini."""
-        response = await self._retry_with_backoff(
-            self.client.models.generate_content(
+        loop = asyncio.get_event_loop()
+        response = await loop.run_in_executor(
+            None,
+            lambda: self.client.models.generate_content(
                 model=self.model,
                 contents=prompt,
-                config=genai.GenerateContentConfig(
+                config=self.genai.GenerateContentConfig(
                     temperature=temperature,
                     max_output_tokens=max_tokens
                 )
@@ -73,17 +78,19 @@ class GeminiProvider(LLMProvider):
         return response.text
 
     async def embed(self, texts: List[str]) -> List[List[float]]:
-        """Generate embeddings using Gemini."""
-        # Use sentence-transformers for local or API
-        results = []
-        for text in texts:
-            # Placeholder - implement actual embedding
-            results.append([0.1] * 384)  # 384-dim vector
-        return results
+        """Generate embeddings using sentence-transformers for accuracy."""
+        try:
+            from sentence_transformers import SentenceTransformer
+            model = SentenceTransformer('distiluse-base-multilingual-cased-v2')
+            embeddings = model.encode(texts)
+            return embeddings.tolist()
+        except ImportError:
+            logger.warning("sentence-transformers not available, using fallback")
+            return [[0.0] * 768 for _ in texts]
 
     def get_token_count(self, text: str) -> int:
         """Estimate token count (rough approximation)."""
-        return len(text) // 4  # Rough estimate
+        return len(text) // 4
 
 
 class AnthropicProvider(LLMProvider):
@@ -91,14 +98,14 @@ class AnthropicProvider(LLMProvider):
 
     def _setup_client(self):
         try:
-            from anthropic import Anthropic
-            self.client = Anthropic(api_key=self.api_key)
-            logger.info(f"Claude client initialized")
+            from anthropic import AsyncAnthropic
+            self.client = AsyncAnthropic(api_key=self.api_key)
+            logger.info(f"Claude async client initialized")
         except ImportError:
             logger.error("anthropic not installed")
 
     async def generate(self, prompt: str, **kwargs) -> str:
-        """Generate response using Claude."""
+        """Generate response using Claude async client."""
         response = await self.client.messages.create(
             model=self.model,
             max_tokens=kwargs.get('max_tokens', 4096),
@@ -113,25 +120,29 @@ class LocalLLMProvider(LLMProvider):
     def _setup_client(self):
         try:
             import ollama
-            self.client = ollama.Client(host=os.getenv('OLLAMA_HOST', 'localhost'))
-            logger.info(f"Ollama client initialized")
+            self.client = ollama.AsyncClient(host=os.getenv('OLLAMA_HOST', 'http://localhost:11434'))
+            logger.info(f"Ollama async client initialized")
         except ImportError:
             logger.error("ollama not installed")
 
     async def generate(self, prompt: str, **kwargs) -> str:
-        """Generate using local model."""
-        response = self.client.generate(model=self.model, prompt=prompt)
+        """Generate using local model (async)."""
+        response = await self.client.generate(model=self.model, prompt=prompt)
         return response['response']
 
 
 def get_provider(provider_name: str) -> LLMProvider:
     """Factory function to get LLM provider instance."""
-    api_key = os.getenv(f"{provider_name.upper()}_API_KEY")
+    api_key = os.getenv(f"{provider_name.upper()}_API_KEY", "")
     model = os.getenv(f"{provider_name.upper()}_MODEL", "gemini-2.5-flash")
 
     if provider_name == "gemini":
+        if not api_key:
+            raise ValueError("GEMINI_API_KEY environment variable is not set")
         return GeminiProvider(api_key, model)
     elif provider_name == "anthropic":
+        if not api_key:
+            raise ValueError("ANTHROPIC_API_KEY environment variable is not set")
         return AnthropicProvider(api_key, model)
     elif provider_name == "ollama":
         return LocalLLMProvider(api_key="", model=model)
@@ -140,6 +151,11 @@ def get_provider(provider_name: str) -> LLMProvider:
 
 
 if __name__ == "__main__":
-    # Test providers
-    provider = get_provider("gemini")
-    print(f"Provider: {provider.__class__.__name__}")
+    # Test providers — requires env vars to be set
+    provider_name = os.getenv("TEST_PROVIDER", "ollama")
+    try:
+        provider = get_provider(provider_name)
+        print(f"Provider: {provider.__class__.__name__} — OK")
+    except Exception as e:
+        print(f"Provider {provider_name} failed: {e}")
+        print("Set TEST_PROVIDER=ollama to test without API keys")
